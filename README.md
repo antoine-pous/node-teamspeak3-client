@@ -85,7 +85,7 @@ ts3client.prepare('serverEdit', 'serveredit virtualserver_name=%s virtualserver_
 ts3client.prepare('setVServerMaxClients', 'serveredit virtualserver_maxclients=%d')
 
 // Execute the query, the values are automaticly escaped
-ts3client.execute('setVServerName', ['TeamSpeak ]|[ Server', 'newPassword'], function(err, rows, query) {
+ts3client.execute('serverEdit', ['TeamSpeak ]|[ Server', 'newPassword'], function(err, rows, query) {
 
   // If the server return an error
   if(err.id > 0) {
