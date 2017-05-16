@@ -1,6 +1,6 @@
 {
   "name": "teamspeak3-client",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "TeamSpeak3 ServerQuery Client",
   "main": "teamspeak3-client.js",
   "directories": {
