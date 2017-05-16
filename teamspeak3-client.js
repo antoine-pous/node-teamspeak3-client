@@ -200,7 +200,7 @@ let TeamSpeak3Client = function(host, port) {
   TeamSpeak3Client.prototype.execute = function(name, params, cb) {
 
     if(typeof prepared[name] === 'undefined') {
-      throw new Error('Cannot execute `%s`, statement not found!', name)
+      throw new Error('Cannot execute `' + name + '`, statement not found!')
     }
 
     // Escape all the values
