@@ -282,10 +282,9 @@ let TeamSpeak3Client = function(host, port) {
         processQueue()
       // If we have a notification
  			} else if(l.indexOf('notify') === 0) {
- 				let n = l.substr('notify'.length)
- 				res = parseResponse(s)
         log.verbose('notify', l)
- 				self.emit(n.substr(0, n.indexOf(' ')), res)
+ 				let n = l.substr('notify'.length)
+ 				self.emit(n.substr(0, n.indexOf(' ')), ts3utils.parseResponse(l))
       // Normal data set
  			} else if(q) {
  				q.res = ts3utils.parseResponse(l)
