@@ -29,8 +29,8 @@ let util = require('util')
 log.fileLevel = 'silent'
 log.level = 'silent'
 
-let TeamSpeak3Client = function(host, port) {
-  ev.call(this);
+let TeamSpeak3Client = function(host, port, whitelisted) {
+  ev.call(this)
 
   let self = this
  	let socket = net.connect(port, host)
@@ -40,6 +40,46 @@ let TeamSpeak3Client = function(host, port) {
  	let queue = []
   let queryCount = 0
  	let q = null
+  let AFLTime = 0
+  let AFLQuery = 0
+  let AFLConfig = {
+    whitelisted: typeof whitelisted === 'boolean' ? whitelisted : false,
+    commands: 10,
+    time: 3
+  }
+
+  /**
+   * Anti Flood Limit Reached
+   *
+   * @description
+   * @since 1.1.0
+   * @return boolean
+   */
+  let AFLReached = function(query) {
+
+    if(AFLConfig.whitelisted === true) {
+      return false
+    }
+
+    let currentTime = new Date().getTime() / 1000
+
+    // If the time limit is expired
+    if((AFLTime + AFLConfig.time) < currentTime) {
+      AFLTime = currentTime
+      AFLQuery = query.id
+      return false
+    }
+
+    // If the queryCount is reached
+    if((query.id - AFLConfig.commands) >= AFLQuery) {
+      setTimeout(function() {
+        processQueue()
+      }, (currentTime - AFLTime) * 1000)
+      return true
+    }
+
+    return false
+  }
 
   /**
    * Process queue
@@ -48,12 +88,14 @@ let TeamSpeak3Client = function(host, port) {
    * @since 1.0.0
    * @return null
    */
-  let processQueue = function() {
+  let processQueue = function(whitelisted) {
  		if(!q && queue.length >= 1) {
- 			q = queue.shift();
-      log.verbose('send', q.query.replace(/\n$/, ''))
-      q.query = q.query.endsWith('\n') ? q.query : q.query + '\n'
- 			socket.write(q.query)
+      if(!AFLReached(queue[0])) {
+ 			  q = queue.shift()
+        log.verbose('send', q.query.replace(/\n$/, ''))
+        q.query = q.query.endsWith('\n') ? q.query : q.query + '\n'
+ 			  socket.write(q.query)
+      }
  		}
  	}
 
@@ -87,6 +129,26 @@ let TeamSpeak3Client = function(host, port) {
     if(status === 0) processQueue()
   }
 
+  /**
+   * Anti Flood
+   *
+   * @description Set the anti-flood parameters
+   * @param Numbers commands Maximum command rate
+   * @param Numbers time Duration rate in seconds
+   * @return null
+   */
+  TeamSpeak3Client.prototype.antiFlood = function(commands, time) {
+
+    if(typeof commands !== 'number' || typeof time !== 'number') {
+      throw new Error('antiFlood except only numbers parameters!')
+    }
+
+    AFLConfig.commands = commands
+    AFLConfig.time = time
+
+    log.verbose('client', 'anti-flood set to', commands, 'commands maximum in', time, 'seconds')
+
+  }
   /**
    * Log Level
    *
@@ -210,14 +272,41 @@ let TeamSpeak3Client = function(host, port) {
 
     p.unshift(prepared[name])
 
-    console.log(p)
-
     // Build the final query
     let query = util.format.apply(this, p)
 
     // Send the query to the server
     self.send(query, cb)
   }
+
+  /**
+   * Prepare
+   *
+   * @description Execute ASAP a prepared query
+   * @param String name Prepared statement name
+   * @param String query The query
+   * @return boolean
+   */
+  TeamSpeak3Client.prototype.executeNow = function(name, params, cb) {
+
+    if(typeof prepared[name] === 'undefined') {
+      throw new Error('Cannot execute `' + name + '`, statement not found!')
+    }
+
+    // Escape all the values
+    let p = params.map(function(v) {
+      return ts3utils.escape(v)
+    })
+
+    p.unshift(prepared[name])
+
+    // Build the final query
+    let query = util.format.apply(this, p)
+
+    // Send the query to the server
+    self.sendNow(query, cb)
+  }
+
 
   /**
    * Send
@@ -296,6 +385,22 @@ let TeamSpeak3Client = function(host, port) {
 
   })
 
+  // If the client is not on whitelist
+  if(!AFLConfig.whitelisted) {
+
+    // Trying to get the instanceinfo before any other queries
+    self.sendNow('instanceinfo', function(err, rows, query) {
+      if(err.id > 0) {
+        log.error('client', '[', err.id, '] ', err.msg)
+        return
+      }
+
+      self.antiFlood(
+        rows[0].serverinstance_serverquery_flood_commands,
+        rows[0].serverinstance_serverquery_flood_time
+      )
+    })
+  }
 }
 
 util.inherits(TeamSpeak3Client, ev)
