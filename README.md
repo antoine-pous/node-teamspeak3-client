@@ -10,7 +10,7 @@ TeamSpeak3 ServerQuery Client
 $ npm install teamspeak3-client --save
 ```
 
-## Connect to the server
+### Connect to the server
 ```js
 let ts3client = require('teamspeak3-client')
 let ts3 = new ts3client(host, port)
@@ -26,14 +26,14 @@ ts3.on('connected', function() {
 ts3client.connect('127.0.0.1', 10011)
 ```
 
-## Querying the server
+### Querying the server
 Each time the queries provide 3 objects to your callback :
 
 - `err` An object wich contains the error `id` and `msg` from the server
 - `rows` An array of objects, each offset is a row `[{row 1},{row 2},...]`
 - `query` An object wich contains all informations about the query
 
-### Anti Flood
+#### Anti Flood
 The client is provided with an anti-flood feature, when the client connect to the serverinstance it get the `instanceinfo`.
 
 If these informations are not available the client use the default values. You can enforce theses values, ask your hoster about the flood rate limit if you are banned with the default values.
@@ -42,7 +42,7 @@ If these informations are not available the client use the default values. You c
 // force the client to send maximum 10 query each 3 seconds
 ts3client.antiFlood(10, 3)
 ```
-### The whitelist
+#### The whitelist
 If your client is whitelisted on the serverinstance you can allow the client to perform each request ASAP.
 
 ```js
@@ -51,7 +51,7 @@ ts3client.connect('127.0.0.1', 10011, true)
 
 **Important:** If you enable this feature while you are not whitelisted the client will be banned.
 
-### Debug your queries
+#### Debug your queries
 During the development you can enable the verbose mode, it shown all the queries and the responses.
 
 ```js
@@ -60,7 +60,7 @@ let ts3 = new ts3client(host, port)
 ts3.enableverbose()
 ```
 
-### Build and send your query
+#### Build and send your query
 You can build and escape your queries easily. If you want send the query in priority you can use `queryNow`.
 
 ```js
@@ -76,7 +76,7 @@ ts3client.query('serveredit', {virtualserver_name:'TeamSpeak ]|[ Server'}, [], f
 })
 ```
 
-### Send query
+#### Send query
 If you need you can send raw queries, they are **not** escaped. If you want send the query in priority you can use `sendNow`.
 ```js
 let ts3utils = require('teamspeak3-utils')
@@ -94,7 +94,7 @@ ts3client.send('serveredit virtualserver_name=' + newName, function(err, rows, q
 })
 ```
 
-### Prepared queries
+#### Prepared queries
 If you want execute the query in priority you can use `executeNow`.
 
 **Note:** You must respect the arguments list order
@@ -115,4 +115,13 @@ ts3client.execute('serverEdit', ['TeamSpeak ]|[ Server', 'newPassword'], functio
   console.log(rows)
 })
 ts3client.execute('setVServerMaxClients', ['numbers expected'])
+```
+
+### Use teamspeak3-utils
+teamspeak3-utils is embedded to the client, this approach avoid too much call on require.
+
+```
+let ts3 = require('teamspeak3-client')
+
+ts3.utils.escape('Hello World!') // Hello\sWorld!
 ```
