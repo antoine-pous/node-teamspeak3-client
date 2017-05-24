@@ -53,7 +53,7 @@ let TeamSpeak3Client = function(host, port, whitelisted) {
    *
    * @since 1.2.0
    */
-  let TeamSpeak3Client.prototype.utils = ts3utils
+  TeamSpeak3Client.prototype.utils = ts3utils
 
   /**
    * Anti Flood Limit Reached
