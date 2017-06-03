@@ -138,7 +138,7 @@ TS3Client.on("cliententerview", function(client) {
 ### Use teamspeak3-utils
 teamspeak3-utils is embedded to the client, this approach avoid too much call on require.
 
-```
+```js
 let TS3Client = require('teamspeak3-client')
 
 TS3Client.utils.escape('Hello World!') // Hello\sWorld!
