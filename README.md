@@ -12,18 +12,16 @@ $ npm install teamspeak3-client --save
 
 ### Connect to the server
 ```js
-let ts3client = require('teamspeak3-client')
-let ts3 = new ts3client(host, port)
+let TS3Client = require('teamspeak3-client')
 
 // Wait for the connection event
-ts3.on('connected', function() {
+TS3Client.on('connected', function() {
 
   // Do the stuff...
 
 })
 
-// Connect to the server localhost:10011
-ts3client.connect('127.0.0.1', 10011)
+TS3Client.connect(host, port, whitelisted)
 ```
 
 ### Querying the server
@@ -39,32 +37,33 @@ The client is provided with an anti-flood feature, when the client connect to th
 If these informations are not available the client use the default values. You can enforce theses values, ask your hoster about the flood rate limit if you are banned with the default values.
 
 ```js
-// force the client to send maximum 10 query each 3 seconds
+// force the client to send 10 queries max each 3 seconds
 ts3client.antiFlood(10, 3)
 ```
 #### The whitelist
 If your client is whitelisted on the serverinstance you can allow the client to perform each request ASAP.
 
 ```js
-ts3client.connect('127.0.0.1', 10011, true)
+TS3Client.connect('127.0.0.1', 10011, true)
 ```
 
 **Important:** If you enable this feature while you are not whitelisted the client will be banned.
 
 #### Debug your queries
-During the development you can enable the verbose mode, it shown all the queries and the responses.
+During the development you can listen the `verbose` event. This event provide a prefix and the log entry. The prefix is the component of the client wich emit the log
 
 ```js
-let ts3client = require('teamspeak3-client')
-let ts3 = new ts3client(host, port)
-ts3.enableverbose()
+TS3Client.on("verbose", function(prefix, entry) {
+  let log = require("npmlogger") // Use your favorite logger
+  log.verbose(prefix, entry)
+})
 ```
 
 #### Build and send your query
 You can build and escape your queries easily. If you want send the query in priority you can use `queryNow`.
 
 ```js
-ts3client.query('serveredit', {virtualserver_name:'TeamSpeak ]|[ Server'}, [], function(err, rows, query) {
+TS3Client.query('serveredit', {virtualserver_name:'TeamSpeak ]|[ Server'}, [], function(err, rows, query) {
 
   // If the server return an error
   if(err.id > 0) {
@@ -79,10 +78,10 @@ ts3client.query('serveredit', {virtualserver_name:'TeamSpeak ]|[ Server'}, [], f
 #### Send query
 If you need you can send raw queries, they are **not** escaped. If you want send the query in priority you can use `sendNow`.
 ```js
-let ts3utils = require('teamspeak3-utils')
-let newName = ts3utils.escape('TeamSpeak ]|[ Server')
+let TS3Utils = require('teamspeak3-utils')
+let newName = TS3Utils.escape('TeamSpeak ]|[ Server')
 
-ts3client.send('serveredit virtualserver_name=' + newName, function(err, rows, query) {
+TS3Client.send('serveredit virtualserver_name=' + newName, function(err, rows, query) {
 
   // If the server return an error
   if(err.id > 0) {
@@ -100,11 +99,11 @@ If you want execute the query in priority you can use `executeNow`.
 **Note:** You must respect the arguments list order
 ```js
 // Prepare the query
-ts3client.prepare('serverEdit', 'serveredit virtualserver_name=%s virtualserver_password=%s')
-ts3client.prepare('setVServerMaxClients', 'serveredit virtualserver_maxclients=%d')
+TS3Client.prepare('serverEdit', 'serveredit virtualserver_name=%s virtualserver_password=%s')
+TS3Client.prepare('setVServerMaxClients', 'serveredit virtualserver_maxclients=%d')
 
 // Execute the query, the values are automaticly escaped
-ts3client.execute('serverEdit', ['TeamSpeak ]|[ Server', 'newPassword'], function(err, rows, query) {
+TS3Client.execute('serverEdit', ['TeamSpeak ]|[ Server', 'newPassword'], function(err, rows, query) {
 
   // If the server return an error
   if(err.id > 0) {
@@ -114,14 +113,33 @@ ts3client.execute('serverEdit', ['TeamSpeak ]|[ Server', 'newPassword'], functio
   // Do the stuff
   console.log(rows)
 })
-ts3client.execute('setVServerMaxClients', ['numbers expected'])
+TS3Client.execute('setVServerMaxClients', ['numbers expected'])
+```
+
+### Listen server events
+This client provide an simple way to listen the server events, the full event list is available in your server documentation.
+
+**Note:** You have to register the event with the command line `servernotifyregister` and remove `notify` from the event name to catch them
+
+```js
+// Subscribe to the server events
+TS3Client.query("servernotifyregister", {event: 'server'}, [], function(err, rows, query) {
+  if(err.id > 0) {
+    throw new Error(err.msg)
+  }
+})
+
+// cliententerview is notifycliententerview event into the server documentation, always remove notify
+TS3Client.on("cliententerview", function(client) {
+  //... Do the stuff
+})
 ```
 
 ### Use teamspeak3-utils
 teamspeak3-utils is embedded to the client, this approach avoid too much call on require.
 
 ```
-let ts3 = require('teamspeak3-client')
+let TS3Client = require('teamspeak3-client')
 
-ts3.utils.escape('Hello World!') // Hello\sWorld!
+TS3Client.utils.escape('Hello World!') // Hello\sWorld!
 ```

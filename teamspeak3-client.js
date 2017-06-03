@@ -23,17 +23,13 @@ let _ = require('underscore')
 let ts3utils = require('teamspeak3-utils')
 let LineInputStream = require('line-input-stream')
 let ev = require('eventemitter2').EventEmitter2
-let log = require('npmlogger')
 let util = require('util')
 
-log.fileLevel = 'silent'
-log.level = 'silent'
-
-let TeamSpeak3Client = function(host, port, whitelisted) {
+let TeamSpeak3Client = function() {
   ev.call(this)
 
   let self = this
- 	let socket = net.connect(port, host)
+ 	let socket // = net.connect(port, host)
  	let reader = null
  	let status = -2
   let prepared = {}
@@ -43,7 +39,7 @@ let TeamSpeak3Client = function(host, port, whitelisted) {
   let AFLTime = 0
   let AFLQuery = 0
   let AFLConfig = {
-    whitelisted: typeof whitelisted === 'boolean' ? whitelisted : false,
+    whitelisted: false,
     commands: 10,
     time: 3
   }
@@ -99,7 +95,7 @@ let TeamSpeak3Client = function(host, port, whitelisted) {
  		if(!q && queue.length >= 1) {
       if(!AFLReached(queue[0])) {
  			  q = queue.shift()
-        log.verbose('send', q.query.replace(/\n$/, ''))
+        self.emit("verbose", "Query sent", q.query.replace(/\n$/, ''))
         q.query = q.query.endsWith('\n') ? q.query : q.query + '\n'
  			  socket.write(q.query)
       }
@@ -118,6 +114,7 @@ let TeamSpeak3Client = function(host, port, whitelisted) {
     queryCount++
     data.id = queryCount
     queue.push(data)
+    self.emit("verbose", 'Queued query #' + data.id, data.query.replace('\n', ''))
     if(status === 0) processQueue()
   }
 
@@ -133,6 +130,7 @@ let TeamSpeak3Client = function(host, port, whitelisted) {
     queryCount++
     data.id = queryCount
     queue.unshift(data)
+    self.emit("verbose", 'Priority query queued #' + data.id, data.query.replace('\n', ''))
     if(status === 0) processQueue()
   }
 
@@ -153,19 +151,8 @@ let TeamSpeak3Client = function(host, port, whitelisted) {
     AFLConfig.commands = commands
     AFLConfig.time = time
 
-    log.verbose('client', 'anti-flood set to', commands, 'commands maximum in', time, 'seconds')
-
+    self.emit("info", "Anti Flood", "Set to " + commands + " commands maximum in " + time + " seconds")
   }
-  /**
-   * Log Level
-   *
-   * @description Set the log level
-   * @since 1.0.0
-   * @return null
-   */
-  TeamSpeak3Client.prototype.enableVerbose = function(lvl) {
- 		log.level = lvl
- 	}
 
   /**
    * Get Queue
@@ -255,7 +242,7 @@ let TeamSpeak3Client = function(host, port, whitelisted) {
     }
 
     prepared[name] = query
-    log.verbose('prepare', name + ': ' + query)
+    self.emit("verbose", "Prepared Query", name + ': ' + query)
   }
 
   /**
@@ -349,66 +336,76 @@ let TeamSpeak3Client = function(host, port, whitelisted) {
     queueUnshift({query: query, cb: cb})
   }
 
-  socket.on('error', function(e) {
-    log.error('socket', e.syscall, e.errno, 'on', e.host + ':' + e.port)
-  })
+  TeamSpeak3Client.prototype.connect = function(host, port, whitelisted) {
 
-  socket.on('connect', function() {
+    AFLConfig.whitelisted = typeof whitelisted === 'boolean' ? whitelisted : false
+    socket = net.connect(port, host)
 
-    // Emit the connected event with host and port
-    self.emit('connected', host, port)
+    socket.on("error", function(e) {
+      self.emit("error", "Socket", e.syscall + ' ' + e.errno + ' on ' + e.host + ':' + e.port)
+    })
 
-    let input = LineInputStream(socket)
+    socket.on('connect', function() {
 
- 		input.on('line', function(line) {
-      let l = line.trim()
+      // Emit the connected event with host and port
+      self.emit('connected', host, port)
 
-      // Skip the first two messages
- 			if(status < 0) {
- 				status++
- 				if(status === 0) processQueue()
- 				return
- 			}
+      let input = LineInputStream(socket)
 
-      // If the response is an error
- 			if(l.indexOf('error') === 0) {
- 				q.err = ts3utils.parseResponse(l.substr("error ".length).trim())[0]
-        q.cb(q.err, q.res || [], q)
-        q = null
-        processQueue()
-      // If we have a notification
- 			} else if(l.indexOf('notify') === 0) {
-        log.verbose('notify', l)
- 				let n = l.substr('notify'.length)
- 				self.emit(n.substr(0, n.indexOf(' ')), ts3utils.parseResponse(l))
-      // Normal data set
- 			} else if(q) {
- 				q.res = ts3utils.parseResponse(l)
- 				q.raw = l
-        log.verbose('res', l)
- 			}
+   		input.on('line', function(line) {
+        let l = line.trim()
+
+        // Skip the first two messages
+   			if(status < 0) {
+   				status++
+   				if(status === 0) processQueue()
+   				return
+   			}
+
+        // If the response is a error
+   			if(l.indexOf('error') === 0) {
+   				q.err = ts3utils.parseResponse(l.substr("error ".length).trim())[0]
+          q.cb(q.err, q.res || [], q)
+          if(q.err.id > 0) {
+            self.emit("error", q.err.id, q.err.msg)
+          }
+          q = null
+          processQueue()
+        // If we have a notification
+   			} else if(l.indexOf('notify') === 0) {
+   				let n = l.substr('notify'.length)
+          let evn = n.substr(0, n.indexOf(' '))
+          let evd = ts3utils.parseResponse(l)
+   				self.emit(evn, evd)
+          self.emit("verbose", "Event " + evn, JSON.stringify(evd))
+        // Normal data set
+   			} else if(q) {
+   				q.res = ts3utils.parseResponse(l)
+   				q.raw = l
+          self.emit("verbose", "response", l)
+   			}
+
+      })
 
     })
 
-  })
+    // If the client is not on whitelist
+    if(!AFLConfig.whitelisted) {
 
-  // If the client is not on whitelist
-  if(!AFLConfig.whitelisted) {
+      // Trying to get the instanceinfo before any other queries
+      self.sendNow('instanceinfo', function(err, rows, query) {
+        if(err.id > 0) {
+          return
+        }
 
-    // Trying to get the instanceinfo before any other queries
-    self.sendNow('instanceinfo', function(err, rows, query) {
-      if(err.id > 0) {
-        log.error('client', '[', err.id, '] ', err.msg)
-        return
-      }
-
-      self.antiFlood(
-        rows[0].serverinstance_serverquery_flood_commands,
-        rows[0].serverinstance_serverquery_flood_time
-      )
-    })
+        self.antiFlood(
+          rows[0].serverinstance_serverquery_flood_commands,
+          rows[0].serverinstance_serverquery_flood_time
+        )
+      })
+    }
   }
 }
 
 util.inherits(TeamSpeak3Client, ev)
-exports = module.exports = TeamSpeak3Client
+exports = module.exports = new TeamSpeak3Client()
