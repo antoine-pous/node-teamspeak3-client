@@ -22,7 +22,7 @@
   "dependencies": {
     "eventemitter2": "^4.1.0",
     "line-input-stream": "^1.0.1",
-    "teamspeak3-utils": "^1.4.0",
+    "teamspeak3-utils": "^1.4.1",
     "underscore": "^1.8.3"
   }
 }
