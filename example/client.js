@@ -1,6 +1,6 @@
 "use strict";
 
-let TS3Client = require("../teamspeak3-client");
+let TeamSpeak3Client = require("../teamspeak3-client");
 let TS3Definitions = require("teamspeak3-utils/definitions");
 
 // Client configuration
@@ -9,6 +9,8 @@ let port = 10011;
 let login = 'serveradmin';
 let pass = 'fernand';
 let whitelisted = true;
+
+let TS3Client = new TeamSpeak3Client();
 
 // Listen for client enter in query client view
 TS3Client.on("cliententerview", function(clients) {

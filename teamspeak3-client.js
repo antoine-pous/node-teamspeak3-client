@@ -440,4 +440,4 @@ let TeamSpeak3Client = function() {
 };
 
 util.inherits(TeamSpeak3Client, ev);
-exports = module.exports = new TeamSpeak3Client();
+exports = module.exports = TeamSpeak3Client;
