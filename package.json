@@ -1,0 +1,30 @@
+{
+  "author": "Antoine Pous",
+  "bugs": {
+    "url": "https://github.com/antoine-pous/node-teamspeak3-client/issues"
+  },
+  "dependencies": {
+    "@ts3/query-utils": "^2.0.0",
+    "eventemitter2": "^4.1.2",
+    "lodash": "^4.17.4"
+  },
+  "description": "TeamSpeak3 ServerQuery Client",
+  "directories": {
+    "example": "example"
+  },
+  "homepage": "https://github.com/antoine-pous/node-teamspeak3-client#readme",
+  "license": "ISC",
+  "main": "index.js",
+  "name": "@ts3/query-client",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/antoine-pous/node-teamspeak3-client.git"
+  },
+  "version": "3.0.0",
+  "devDependencies": {
+    "@types/lodash": "^4.14.85",
+    "@types/node": "^8.0.53",
+    "ts-node": "^3.3.0",
+    "typescript": "^2.6.1"
+  }
+}
