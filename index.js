@@ -26,6 +26,11 @@ class TS3QueryClient extends eventemitter2_1.EventEmitter2 {
     constructor() {
         super(...arguments);
         /**
+         * Carriage return
+         * @type {string}
+         */
+        this.cr = "\r";
+        /**
          * Pending queue
          * @type {Array}
          * @access private
@@ -74,6 +79,13 @@ class TS3QueryClient extends eventemitter2_1.EventEmitter2 {
      */
     getNextQueryID() {
         return this.queryCount + 1;
+    }
+    /**
+     * Return the amount of queued pending queries
+     * @returns {number}
+     */
+    getPendingQueryCount() {
+        return this.queue.length;
     }
     /**
      * Return the current anti flood configuration
@@ -175,7 +187,7 @@ class TS3QueryClient extends eventemitter2_1.EventEmitter2 {
                 if (!this.isFlood(this.queue[0])) {
                     this.currentQuery = this.queue.shift();
                     if (!this.currentQuery) {
-                        this.emit("info", "khjh");
+                        this.emit("info", "Haven't current query!");
                         return;
                     }
                     if (!this.currentQuery.query.endsWith("\n")) {
@@ -322,7 +334,7 @@ class TS3QueryClient extends eventemitter2_1.EventEmitter2 {
      * Connect to the server and wait for instructions
      * @param host
      * @param port
-     * @returns {Promise<iError>}
+     * @returns {Promise}
      */
     connect(host, port) {
         return new Promise((resolve, reject) => {
@@ -347,36 +359,39 @@ class TS3QueryClient extends eventemitter2_1.EventEmitter2 {
             });
             this.socket.on("data", (chunk) => {
                 let lines = `${chunk}`.split("\n");
+                console.log(lines);
                 lines.forEach(data => {
-                    if (data === "\r")
+                    if (data === this.cr)
                         return;
-                    let res;
-                    let evtName = '';
+                    if (data.startsWith(this.cr))
+                        data = data.substr(this.cr.length, data.length);
+                    if (data.endsWith(this.cr))
+                        data = data.substr(0, data.length - this.cr.length);
                     if (this.currentQuery && data.startsWith("error")) {
-                        evtName = "error";
-                        res = query_utils_1.parseResponse(data.substr(evtName.length));
+                        let res = query_utils_1.parseResponse(data.substr("error".length));
                         res[0].query = this.currentQuery.query;
                         if (res[0].id > 0)
                             this.currentQuery.reject(res[0]);
                         if (res[0].id === 0 && this.currentQuery.isResolved === false) {
                             this.currentQuery.resolve(true);
                         }
+                        this.emit("error", res[0]);
+                        delete this.currentQuery;
                     }
                     else if (this.currentQuery && data.indexOf("notify") === 0) {
                         let evt = data.substr("notify".length);
-                        evtName = evt.substr(0, evt.indexOf(" "));
-                        res = query_utils_1.parseResponse(evt.substr(evt.indexOf(" ", evt.length)));
-                        this.currentQuery.resolve(res[0]);
+                        let evtName = evt.substr(0, evt.indexOf(" "));
+                        let res = query_utils_1.parseResponse(evt.substr(evt.indexOf(" ", evt.length)));
+                        this.currentQuery.resolve(res);
                         this.currentQuery.isResolved = true;
+                        this.emit(evtName, res);
                     }
                     else if (this.currentQuery) {
-                        res = query_utils_1.parseResponse(data);
-                        evtName = this.currentQuery.query.substr(0, this.currentQuery.query.indexOf(" "));
+                        let res = query_utils_1.parseResponse(data);
+                        let evtName = this.currentQuery.query.substr(0, this.currentQuery.query.indexOf(" "));
                         this.currentQuery.resolve(res);
+                        this.emit(evtName, res);
                     }
-                    this.emit(`${evtName}`, res);
-                    if (evtName === "error")
-                        this.currentQuery = undefined;
                     this.processQueue();
                 });
             });

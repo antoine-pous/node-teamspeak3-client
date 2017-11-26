@@ -20,7 +20,7 @@
     "type": "git",
     "url": "git+https://github.com/antoine-pous/node-teamspeak3-client.git"
   },
-  "version": "3.0.0",
+  "version": "3.0.1",
   "devDependencies": {
     "@types/lodash": "^4.14.85",
     "@types/node": "^8.0.53",

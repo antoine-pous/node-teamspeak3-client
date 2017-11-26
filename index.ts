@@ -57,9 +57,15 @@ export interface iPrepared {
     [key: string]: string
 }
 
-class TS3QueryClient extends EventEmitter2 {
+export default class TS3QueryClient extends EventEmitter2 {
 
     private socket: any;
+
+    /**
+     * Carriage return
+     * @type {string}
+     */
+    private cr: string = "\r";
 
     /**
      * Pending queue
@@ -115,6 +121,14 @@ class TS3QueryClient extends EventEmitter2 {
      */
     public getNextQueryID(): number {
         return this.queryCount + 1;
+    }
+
+    /**
+     * Return the amount of queued pending queries
+     * @returns {number}
+     */
+    public getPendingQueryCount(): number {
+        return this.queue.length;
     }
 
     /**
@@ -230,12 +244,12 @@ class TS3QueryClient extends EventEmitter2 {
 
             if(this.queue.length >= 1) {
 
-                if (!this.isFlood(this.queue[0])) {
+                if(!this.isFlood(this.queue[0])) {
 
                     this.currentQuery = this.queue.shift();
 
                     if(!this.currentQuery) {
-                        this.emit("info", "khjh")
+                        this.emit("info", "Haven't current query!");
                         return;
                     }
 
@@ -290,7 +304,7 @@ class TS3QueryClient extends EventEmitter2 {
      */
     public query(cmd: string, params: object, flags: string[]): Promise<any> {
 
-        return new Promise((resolve, reject) => {
+        return new Promise<any>((resolve, reject) => {
 
             let query = buildQuery(cmd, params, flags);
 
@@ -417,11 +431,11 @@ class TS3QueryClient extends EventEmitter2 {
      * Connect to the server and wait for instructions
      * @param host
      * @param port
-     * @returns {Promise<iError>}
+     * @returns {Promise}
      */
-    public connect(host: string, port: number) {
+    public connect(host: string, port: number): Promise<any> {
 
-        return new Promise<iError>((resolve, reject) => {
+        return new Promise<any>((resolve, reject) => {
 
             if(!isInteger(port))
                 throw new Error('Port must be an integer!');
@@ -452,35 +466,40 @@ class TS3QueryClient extends EventEmitter2 {
 
                 let lines = `${chunk}`.split("\n");
 
+                console.log(lines);
+
                 lines.forEach(data => {
 
-                    if(data === "\r") return;
+                    if(data === this.cr) return;
 
-                    let res: any;
-                    let evtName: string = '';
+                    if(data.startsWith(this.cr))
+                        data = data.substr(this.cr.length, data.length);
+
+                    if(data.endsWith(this.cr))
+                        data = data.substr(0, data.length - this.cr.length);
 
                     if(this.currentQuery && data.startsWith("error")) {
-                        evtName = "error";
-                        res = parseResponse(data.substr(evtName.length));
+                        let res: any = parseResponse(data.substr("error".length));
                         res[0].query = this.currentQuery.query;
                         if(res[0].id > 0) this.currentQuery.reject(res[0]);
                         if(res[0].id === 0 && this.currentQuery.isResolved === false) {
                             this.currentQuery.resolve(true);
                         }
+                        this.emit("error", res[0]);
+                        delete this.currentQuery;
                     } else if(this.currentQuery && data.indexOf("notify") === 0) {
                         let evt = data.substr("notify".length);
-                        evtName = evt.substr(0, evt.indexOf(" "));
-                        res = parseResponse(evt.substr(evt.indexOf(" ", evt.length)));
-                        this.currentQuery.resolve(res[0]);
-                        this.currentQuery.isResolved = true;
-                    } else if(this.currentQuery) {
-                        res = parseResponse(data);
-                        evtName = this.currentQuery.query.substr(0, this.currentQuery.query.indexOf(" "));
+                        let evtName = evt.substr(0, evt.indexOf(" "));
+                        let res: any = parseResponse(evt.substr(evt.indexOf(" ", evt.length)));
                         this.currentQuery.resolve(res);
+                        this.currentQuery.isResolved = true;
+                        this.emit(evtName, res);
+                    } else if(this.currentQuery) {
+                        let res: any = parseResponse(data);
+                        let evtName = this.currentQuery.query.substr(0, this.currentQuery.query.indexOf(" "));
+                        this.currentQuery.resolve(res);
+                        this.emit(evtName, res);
                     }
-
-                    this.emit(`${evtName}`, res);
-                    if(evtName === "error") this.currentQuery = undefined;
                     this.processQueue();
                 });
 
@@ -490,5 +509,3 @@ class TS3QueryClient extends EventEmitter2 {
     }
 
 }
-
-export default TS3QueryClient;

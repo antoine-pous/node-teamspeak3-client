@@ -29,8 +29,13 @@ export interface iQuery {
 export interface iPrepared {
     [key: string]: string;
 }
-declare class TS3QueryClient extends EventEmitter2 {
+export default class TS3QueryClient extends EventEmitter2 {
     private socket;
+    /**
+     * Carriage return
+     * @type {string}
+     */
+    private cr;
     /**
      * Pending queue
      * @type {Array}
@@ -68,6 +73,11 @@ declare class TS3QueryClient extends EventEmitter2 {
      * @returns {number}
      */
     getNextQueryID(): number;
+    /**
+     * Return the amount of queued pending queries
+     * @returns {number}
+     */
+    getPendingQueryCount(): number;
     /**
      * Return the current anti flood configuration
      * @returns {iAntiFlood}
@@ -177,8 +187,7 @@ declare class TS3QueryClient extends EventEmitter2 {
      * Connect to the server and wait for instructions
      * @param host
      * @param port
-     * @returns {Promise<iError>}
+     * @returns {Promise}
      */
-    connect(host: string, port: number): Promise<iError>;
+    connect(host: string, port: number): Promise<any>;
 }
-export default TS3QueryClient;
