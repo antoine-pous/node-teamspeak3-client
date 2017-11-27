@@ -4,7 +4,7 @@
     "url": "https://github.com/antoine-pous/node-teamspeak3-client/issues"
   },
   "dependencies": {
-    "@ts3/query-utils": "^2.0.0",
+    "@ts3/query-utils": "^2.0.1",
     "eventemitter2": "^4.1.2",
     "lodash": "^4.17.4"
   },
@@ -25,6 +25,6 @@
     "@types/lodash": "^4.14.85",
     "@types/node": "^8.0.53",
     "ts-node": "^3.3.0",
-    "typescript": "^2.6.1"
+    "typescript": "^2.6.2"
   }
 }
