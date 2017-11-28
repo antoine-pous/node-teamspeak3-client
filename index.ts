@@ -21,41 +21,7 @@ import * as util from "util";
 import {buildQuery, escape, parseResponse} from "@ts3/query-utils";
 import {EventEmitter2} from "eventemitter2";
 import {isInteger} from "lodash";
-
-export interface iAntiFlood {
-    config: {
-        commands: number,
-        time: number,
-    },
-    last: {
-        query: number,
-        time: number,
-    },
-    enabled: boolean,
-}
-
-export interface iError {
-    id: number,
-    msg: string,
-    query?: string,
-}
-
-export interface iHost {
-    host: string,
-    port: number,
-}
-
-export interface iQuery {
-    id: number,
-    query: string,
-    resolve: any,
-    reject: any,
-    isResolved: boolean,
-}
-
-export interface iPrepared {
-    [key: string]: string
-}
+import {iAntiFlood, iPrepared, iQuery} from "./interfaces";
 
 export default class TS3QueryClient extends EventEmitter2 {
 
@@ -66,6 +32,8 @@ export default class TS3QueryClient extends EventEmitter2 {
      * @type {string}
      */
     private cr: string = "\r";
+
+    private data: string = "";
 
     /**
      * Pending queue
@@ -145,6 +113,7 @@ export default class TS3QueryClient extends EventEmitter2 {
      */
     public disableAntiFlood(): iAntiFlood {
         this.AntiFlood.enabled = false;
+        this.emit("warn", "AntiFlood disabled, if your Query Client IP is not whitelisted it probably be banned by the server!");
         return this.AntiFlood;
     }
 
@@ -154,6 +123,7 @@ export default class TS3QueryClient extends EventEmitter2 {
      */
     public enableAntiFlood(): iAntiFlood {
         this.AntiFlood.enabled = true;
+        this.emit("info", "AntiFlood enabled, the client may become slow if you try to perform too much queries at the same time");
         return this.AntiFlood;
     }
 
@@ -173,6 +143,8 @@ export default class TS3QueryClient extends EventEmitter2 {
 
         this.AntiFlood.config.commands = commands;
         this.AntiFlood.config.time = time;
+
+        this.emit("info", `AntiFlood policy updated to ${commands} commands in ${time} seconds`);
 
         return this.getAntiFloodStatus();
     }
@@ -279,6 +251,35 @@ export default class TS3QueryClient extends EventEmitter2 {
     }
 
     /**
+     *
+     * @param data {string} Data to parse
+     */
+    private readData(data: string) {
+        if(this.currentQuery && data.startsWith("error")) {
+            let res: any = parseResponse(data.substr("error".length));
+            res[0].query = this.currentQuery.query;
+            if(res[0].id > 0) this.currentQuery.reject(res[0]);
+            if(res[0].id === 0 && this.currentQuery.isResolved === false) {
+                this.currentQuery.resolve(true);
+            }
+            this.emit("error", res[0]);
+            delete this.currentQuery;
+        } else if(this.currentQuery && data.indexOf("notify") === 0) {
+            let evt = data.substr("notify".length);
+            let evtName = evt.substr(0, evt.indexOf(" "));
+            let res: any = parseResponse(evt.substr(evt.indexOf(" ", evt.length)));
+            this.currentQuery.resolve(res);
+            this.currentQuery.isResolved = true;
+            this.emit(evtName, res);
+        } else if(this.currentQuery) {
+            let res: any = parseResponse(data);
+            this.currentQuery.resolve(res);
+        }
+
+        this.processQueue();
+    }
+
+    /**
      * Return the queue
      * @returns {iQuery[]}
      */
@@ -309,6 +310,7 @@ export default class TS3QueryClient extends EventEmitter2 {
             let query = buildQuery(cmd, params, flags);
 
             this.queuePush(query, resolve, reject);
+            this.processQueue();
         });
 
     };
@@ -327,6 +329,7 @@ export default class TS3QueryClient extends EventEmitter2 {
             let query = buildQuery(cmd, params, flags);
 
             this.queueUnshift(query, resolve, reject);
+            this.processQueue();
         });
 
     };
@@ -373,6 +376,7 @@ export default class TS3QueryClient extends EventEmitter2 {
             p.unshift(this.prepared[name]);
 
             this.queuePush(util.format.apply(util, p), resolve, reject);
+            this.processQueue();
         });
     };
 
@@ -400,6 +404,7 @@ export default class TS3QueryClient extends EventEmitter2 {
             p.unshift(this.prepared[name]);
 
             this.queueUnshift(util.format.apply(util, p), resolve, reject);
+            this.processQueue();
         });
     };
 
@@ -458,49 +463,27 @@ export default class TS3QueryClient extends EventEmitter2 {
             });
 
             this.socket.on("connect", () => {
-                this.emit("connect", host, port);
-                resolve({id: 0, msg: "ok"});
+                this.emit("connect");
+                resolve(true);
             });
 
             this.socket.on("data", (chunk: string) => {
 
-                let lines = `${chunk}`.split("\n");
+                this.data += chunk;
+                let lines: string[] = this.data.split("\n");
+                this.data = lines.pop() || "";
 
-                console.log(lines);
+                lines.forEach(line => {
 
-                lines.forEach(data => {
+                    if(line === this.cr || line === "") return;
 
-                    if(data === this.cr) return;
+                    if(line.startsWith(this.cr))
+                        line = line.substr(this.cr.length, line.length);
 
-                    if(data.startsWith(this.cr))
-                        data = data.substr(this.cr.length, data.length);
+                    if(line.endsWith(this.cr))
+                        line = line.substr(0, line.length - this.cr.length);
 
-                    if(data.endsWith(this.cr))
-                        data = data.substr(0, data.length - this.cr.length);
-
-                    if(this.currentQuery && data.startsWith("error")) {
-                        let res: any = parseResponse(data.substr("error".length));
-                        res[0].query = this.currentQuery.query;
-                        if(res[0].id > 0) this.currentQuery.reject(res[0]);
-                        if(res[0].id === 0 && this.currentQuery.isResolved === false) {
-                            this.currentQuery.resolve(true);
-                        }
-                        this.emit("error", res[0]);
-                        delete this.currentQuery;
-                    } else if(this.currentQuery && data.indexOf("notify") === 0) {
-                        let evt = data.substr("notify".length);
-                        let evtName = evt.substr(0, evt.indexOf(" "));
-                        let res: any = parseResponse(evt.substr(evt.indexOf(" ", evt.length)));
-                        this.currentQuery.resolve(res);
-                        this.currentQuery.isResolved = true;
-                        this.emit(evtName, res);
-                    } else if(this.currentQuery) {
-                        let res: any = parseResponse(data);
-                        let evtName = this.currentQuery.query.substr(0, this.currentQuery.query.indexOf(" "));
-                        this.currentQuery.resolve(res);
-                        this.emit(evtName, res);
-                    }
-                    this.processQueue();
+                    this.readData(line);
                 });
 
             });

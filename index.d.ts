@@ -1,34 +1,5 @@
 import { EventEmitter2 } from "eventemitter2";
-export interface iAntiFlood {
-    config: {
-        commands: number;
-        time: number;
-    };
-    last: {
-        query: number;
-        time: number;
-    };
-    enabled: boolean;
-}
-export interface iError {
-    id: number;
-    msg: string;
-    query?: string;
-}
-export interface iHost {
-    host: string;
-    port: number;
-}
-export interface iQuery {
-    id: number;
-    query: string;
-    resolve: any;
-    reject: any;
-    isResolved: boolean;
-}
-export interface iPrepared {
-    [key: string]: string;
-}
+import { iAntiFlood, iQuery } from "./interfaces";
 export default class TS3QueryClient extends EventEmitter2 {
     private socket;
     /**
@@ -36,6 +7,7 @@ export default class TS3QueryClient extends EventEmitter2 {
      * @type {string}
      */
     private cr;
+    private data;
     /**
      * Pending queue
      * @type {Array}
@@ -124,6 +96,11 @@ export default class TS3QueryClient extends EventEmitter2 {
      * Process queue
      */
     private processQueue();
+    /**
+     *
+     * @param data {string} Data to parse
+     */
+    private readData(data);
     /**
      * Return the queue
      * @returns {iQuery[]}

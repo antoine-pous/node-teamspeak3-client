@@ -30,6 +30,7 @@ class TS3QueryClient extends eventemitter2_1.EventEmitter2 {
          * @type {string}
          */
         this.cr = "\r";
+        this.data = "";
         /**
          * Pending queue
          * @type {Array}
@@ -100,6 +101,7 @@ class TS3QueryClient extends eventemitter2_1.EventEmitter2 {
      */
     disableAntiFlood() {
         this.AntiFlood.enabled = false;
+        this.emit("warn", "AntiFlood disabled, if your Query Client IP is not whitelisted it probably be banned by the server!");
         return this.AntiFlood;
     }
     /**
@@ -108,6 +110,7 @@ class TS3QueryClient extends eventemitter2_1.EventEmitter2 {
      */
     enableAntiFlood() {
         this.AntiFlood.enabled = true;
+        this.emit("info", "AntiFlood enabled, the client may become slow if you try to perform too much queries at the same time");
         return this.AntiFlood;
     }
     /**
@@ -123,6 +126,7 @@ class TS3QueryClient extends eventemitter2_1.EventEmitter2 {
             throw new Error("Time parameter must be an integer!");
         this.AntiFlood.config.commands = commands;
         this.AntiFlood.config.time = time;
+        this.emit("info", `AntiFlood policy updated to ${commands} commands in ${time} seconds`);
         return this.getAntiFloodStatus();
     }
     /**
@@ -207,6 +211,36 @@ class TS3QueryClient extends eventemitter2_1.EventEmitter2 {
         }
     }
     /**
+     *
+     * @param data {string} Data to parse
+     */
+    readData(data) {
+        if (this.currentQuery && data.startsWith("error")) {
+            let res = query_utils_1.parseResponse(data.substr("error".length));
+            res[0].query = this.currentQuery.query;
+            if (res[0].id > 0)
+                this.currentQuery.reject(res[0]);
+            if (res[0].id === 0 && this.currentQuery.isResolved === false) {
+                this.currentQuery.resolve(true);
+            }
+            this.emit("error", res[0]);
+            delete this.currentQuery;
+        }
+        else if (this.currentQuery && data.indexOf("notify") === 0) {
+            let evt = data.substr("notify".length);
+            let evtName = evt.substr(0, evt.indexOf(" "));
+            let res = query_utils_1.parseResponse(evt.substr(evt.indexOf(" ", evt.length)));
+            this.currentQuery.resolve(res);
+            this.currentQuery.isResolved = true;
+            this.emit(evtName, res);
+        }
+        else if (this.currentQuery) {
+            let res = query_utils_1.parseResponse(data);
+            this.currentQuery.resolve(res);
+        }
+        this.processQueue();
+    }
+    /**
      * Return the queue
      * @returns {iQuery[]}
      */
@@ -232,6 +266,7 @@ class TS3QueryClient extends eventemitter2_1.EventEmitter2 {
         return new Promise((resolve, reject) => {
             let query = query_utils_1.buildQuery(cmd, params, flags);
             this.queuePush(query, resolve, reject);
+            this.processQueue();
         });
     }
     ;
@@ -246,6 +281,7 @@ class TS3QueryClient extends eventemitter2_1.EventEmitter2 {
         return new Promise((resolve, reject) => {
             let query = query_utils_1.buildQuery(cmd, params, flags);
             this.queueUnshift(query, resolve, reject);
+            this.processQueue();
         });
     }
     ;
@@ -283,6 +319,7 @@ class TS3QueryClient extends eventemitter2_1.EventEmitter2 {
             });
             p.unshift(this.prepared[name]);
             this.queuePush(util.format.apply(util, p), resolve, reject);
+            this.processQueue();
         });
     }
     ;
@@ -305,6 +342,7 @@ class TS3QueryClient extends eventemitter2_1.EventEmitter2 {
             });
             p.unshift(this.prepared[name]);
             this.queueUnshift(util.format.apply(util, p), resolve, reject);
+            this.processQueue();
         });
     }
     ;
@@ -354,45 +392,21 @@ class TS3QueryClient extends eventemitter2_1.EventEmitter2 {
                 reject({ id: 9000, msg: "CLOSE" });
             });
             this.socket.on("connect", () => {
-                this.emit("connect", host, port);
-                resolve({ id: 0, msg: "ok" });
+                this.emit("connect");
+                resolve(true);
             });
             this.socket.on("data", (chunk) => {
-                let lines = `${chunk}`.split("\n");
-                console.log(lines);
-                lines.forEach(data => {
-                    if (data === this.cr)
+                this.data += chunk;
+                let lines = this.data.split("\n");
+                this.data = lines.pop() || "";
+                lines.forEach(line => {
+                    if (line === this.cr || line === "")
                         return;
-                    if (data.startsWith(this.cr))
-                        data = data.substr(this.cr.length, data.length);
-                    if (data.endsWith(this.cr))
-                        data = data.substr(0, data.length - this.cr.length);
-                    if (this.currentQuery && data.startsWith("error")) {
-                        let res = query_utils_1.parseResponse(data.substr("error".length));
-                        res[0].query = this.currentQuery.query;
-                        if (res[0].id > 0)
-                            this.currentQuery.reject(res[0]);
-                        if (res[0].id === 0 && this.currentQuery.isResolved === false) {
-                            this.currentQuery.resolve(true);
-                        }
-                        this.emit("error", res[0]);
-                        delete this.currentQuery;
-                    }
-                    else if (this.currentQuery && data.indexOf("notify") === 0) {
-                        let evt = data.substr("notify".length);
-                        let evtName = evt.substr(0, evt.indexOf(" "));
-                        let res = query_utils_1.parseResponse(evt.substr(evt.indexOf(" ", evt.length)));
-                        this.currentQuery.resolve(res);
-                        this.currentQuery.isResolved = true;
-                        this.emit(evtName, res);
-                    }
-                    else if (this.currentQuery) {
-                        let res = query_utils_1.parseResponse(data);
-                        let evtName = this.currentQuery.query.substr(0, this.currentQuery.query.indexOf(" "));
-                        this.currentQuery.resolve(res);
-                        this.emit(evtName, res);
-                    }
-                    this.processQueue();
+                    if (line.startsWith(this.cr))
+                        line = line.substr(this.cr.length, line.length);
+                    if (line.endsWith(this.cr))
+                        line = line.substr(0, line.length - this.cr.length);
+                    this.readData(line);
                 });
             });
         });
