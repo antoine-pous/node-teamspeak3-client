@@ -61,3 +61,7 @@ typings/
 .idea
 
 .idea_modules
+
+# Project
+server
+tests
