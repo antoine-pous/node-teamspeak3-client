@@ -8,8 +8,6 @@ TeamSpeak3 ServerQuery Client
 
 This client is designed to help you to create your own application wich need to communicate with the TeamSpeak 3 Server through the ServerQuery API.
 
-// TODO : Socket error are emitted with id `9000`
-
 ## Installation
 ```console
 $ npm install @ts3/query-client --save
