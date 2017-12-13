@@ -21,7 +21,7 @@ import * as util from "util";
 import {buildQuery, escape, parseResponse} from "@ts3/query-utils";
 import {EventEmitter2} from "eventemitter2";
 import {isInteger} from "lodash";
-import {iAntiFlood, iPrepared, iQuery} from "./interfaces";
+import {iAntiFlood, iError, iPrepared, iQuery} from "./interfaces";
 
 export default class TS3QueryClient extends EventEmitter2 {
 
@@ -227,6 +227,11 @@ export default class TS3QueryClient extends EventEmitter2 {
 
                     if (!this.currentQuery.query.endsWith("\n")) {
                         this.currentQuery.query = `${this.currentQuery.query}\n`;
+                    }
+
+                    if(!this.socket) {
+                        this.emit("error", {id: 9000, msg: "Socket is not open!"});
+                        return;
                     }
 
                     this.emit("info", `Query #${this.currentQuery.id} sent! ${this.currentQuery.query.replace("\n", "")}`);

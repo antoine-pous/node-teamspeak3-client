@@ -197,6 +197,10 @@ class TS3QueryClient extends eventemitter2_1.EventEmitter2 {
                     if (!this.currentQuery.query.endsWith("\n")) {
                         this.currentQuery.query = `${this.currentQuery.query}\n`;
                     }
+                    if (!this.socket) {
+                        this.emit("error", { id: 9000, msg: "Socket is not open!" });
+                        return;
+                    }
                     this.emit("info", `Query #${this.currentQuery.id} sent! ${this.currentQuery.query.replace("\n", "")}`);
                     this.socket.write(this.currentQuery.query);
                 }
