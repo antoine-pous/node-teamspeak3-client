@@ -269,16 +269,15 @@ export default class TS3QueryClient extends EventEmitter2 {
             }
             this.emit("error", res[0]);
             delete this.currentQuery;
-        } else if(this.currentQuery && data.indexOf("notify") === 0) {
+        } else if(data.indexOf("notify") === 0) {
             let evt = data.substr("notify".length);
             let evtName = evt.substr(0, evt.indexOf(" "));
-            let res: any = parseResponse(evt.substr(evt.indexOf(" ", evt.length)));
-            this.currentQuery.resolve(res);
-            this.currentQuery.isResolved = true;
+            let res: any = parseResponse(evt.substr(evtName.length, evt.length));
             this.emit(evtName, res);
         } else if(this.currentQuery) {
             let res: any = parseResponse(data);
             this.currentQuery.resolve(res);
+            this.currentQuery.isResolved = true;
         }
 
         this.processQueue();
