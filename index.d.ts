@@ -161,6 +161,17 @@ export default class TS3QueryClient extends EventEmitter2 {
      */
     sendNow(query: string): Promise<any>;
     /**
+     * Upload a file through the TeamSpeak 3 files interface
+     * @param name
+     * @param dest
+     * @param cid
+     * @param overwrite
+     * @param resume
+     * @param cpw
+     * @returns {Promise<any>}
+     */
+    uploadFile(src: string, dest: string, cid: number, overwrite: 0 | 1, resume: 0 | 1, cpw?: string): Promise<any>;
+    /**
      * Connect to the server and wait for instructions
      * @param host
      * @param port

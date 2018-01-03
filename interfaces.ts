@@ -10,6 +10,16 @@ export interface iAntiFlood {
     enabled: boolean,
 }
 
+export interface iUploadInit {
+    clientftfid: number,
+    name: string,
+    cid: number,
+    cpw: string,
+    size: number,
+    overwrite: 0|1,
+    resume:0|1,
+}
+
 export interface iError {
     id: number,
     msg: string,

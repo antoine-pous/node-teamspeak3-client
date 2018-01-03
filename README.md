@@ -1,5 +1,4 @@
-# TeamSpeak 3 TypeScript Query Client
-TeamSpeak3 ServerQuery Client
+# TeamSpeak 3 TypeScript ServerQuery Client
 
 [![Build Status](https://travis-ci.org/antoine-pous/node-teamspeak3-client.svg?branch=master)](https://travis-ci.org/antoine-pous/node-teamspeak3-client)
 [![Dependency Status](https://gemnasium.com/badges/github.com/antoine-pous/node-teamspeak3-client.svg)](https://gemnasium.com/github.com/antoine-pous/node-teamspeak3-client)
@@ -158,6 +157,29 @@ TS3Client.execute('serveredit', ['TeamSpeak ]|[ Server', 'newPassword']).catch((
 });
 
 TS3Client.execute('setVServerMaxClients', ['numbers expected']);
+```
+
+#### Upload a file
+**Note** This feature is currently in testing phase, report any encoutered problems.
+
+You can upload a file through the TeamSpeak 3 File Transfert Manager with the method `.uploadFile`.
+
+Parameters are :
+
+* {Required} src *Local file path*
+* {Required} dest *File path into the channel directory*
+* {Required} cid *Channel ID*
+* {Required} overwrite *Overwrite existing file*
+* {Required} resume *Resume the upload*
+* {Optionnal} cpw *Channel password*
+
+```typescript
+let isUploaded = TS3Client.uploadFile(src, dest, cid, overwrite, resume, cpw).catch((e: iError) => {
+    console.log(e.id, e.msg);
+});
+
+if(isUploaded)
+    console.log('File uploaded!');
 ```
 
 ### TeamSpeak 3 Query Utilities

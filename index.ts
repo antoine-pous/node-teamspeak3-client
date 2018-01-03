@@ -21,7 +21,8 @@ import * as util from "util";
 import {buildQuery, escape, parseResponse} from "@ts3/query-utils";
 import {EventEmitter2} from "eventemitter2";
 import {isInteger} from "lodash";
-import {iAntiFlood, iError, iPrepared, iQuery} from "./interfaces";
+import {iAntiFlood, iError, iPrepared, iQuery, iUploadInit} from "./interfaces";
+import {readFile, stat, Stats} from "fs";
 
 export default class TS3QueryClient extends EventEmitter2 {
 
@@ -434,6 +435,79 @@ export default class TS3QueryClient extends EventEmitter2 {
             this.queueUnshift(query, resolve, reject);
             this.processQueue();
         });
+    }
+
+    /**
+     * Upload a file through the TeamSpeak 3 files interface
+     * @param name
+     * @param dest
+     * @param cid
+     * @param overwrite
+     * @param resume
+     * @param cpw
+     * @returns {Promise<any>}
+     */
+    public uploadFile(src: string, dest: string, cid: number, overwrite: 0|1, resume: 0|1, cpw?: string): Promise<any> {
+        return new Promise<any>(async (resolve, reject) => {
+
+            stat(src, (err: NodeJS.ErrnoException, stats: Stats) => {
+
+                if(err)
+                    return reject({id: 9000, msg: err.message});
+
+                if(!stats.isFile())
+                    return reject({id: 9000, msg: "uploadFile expect a file path!"});
+
+                if(!dest.startsWith('/'))
+                    dest = `/${dest}`;
+
+                let cfg: iUploadInit = { clientftfid: this.queryCount + 1, name: dest, cid, size: stats.size, overwrite, resume, cpw: cpw || '' };
+
+                this.query("ftinitupload", cfg, []).then((ftinit: any) => {
+                    let ft = ftinit[0];
+
+                    if(ft.status)
+                        reject({id: ft.status, msg: ft.msg});
+
+                    let ftsocket = net.connect(ft.port, this.socket.address().address);
+
+                    ftsocket.on('error', (err: Error) => {
+                        this.emit('error', {id: 9000, msg: `(FT) ${err.message}`});
+                        reject({id: 9000, msg: `(FT) ${err.message}`});
+                    });
+
+                    ftsocket.on('end', () => {
+                        this.emit('ftend');
+                        resolve(true);
+                    });
+
+                    ftsocket.on('close', () => {
+                        this.emit('ftclose');
+                        reject({id: 9000, msg: "CLOSE"});
+                    });
+
+                    ftsocket.on("connect", () => {
+                        this.emit("ftconnect");
+
+                        readFile(src, (err: NodeJS.ErrnoException, data: Buffer) => {
+
+                            if(err)
+                                reject({id: 9000, msg: `(FT) ${err.message}`})
+
+                            ftsocket.write(ft.ftkey);
+                            ftsocket.read();
+                            ftsocket.write(data);
+                        });
+                    });
+
+
+                }, (e: iError) => {
+                    reject(e);
+                });
+            });
+
+        });
+
     }
 
     /**
