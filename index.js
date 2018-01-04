@@ -328,7 +328,7 @@ class TS3QueryClient extends eventemitter2_1.EventEmitter2 {
     execute(name, params) {
         return new Promise((resolve, reject) => {
             if (!this.prepared.hasOwnProperty(name)) {
-                let err = `${name} is not a valid prepared query!`;
+                let err = { id: 9000, msg: `${name} is not a valid prepared query!` };
                 this.emit("error", err);
                 return reject(err);
             }
