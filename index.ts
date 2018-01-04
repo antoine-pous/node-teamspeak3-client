@@ -235,6 +235,14 @@ export default class TS3QueryClient extends EventEmitter2 {
                         return;
                     }
 
+                    if(this.currentQuery.query.startsWith("help")) {
+                        let err: iError = {id: 9000, msg: "Help command cannot be parsed, read the TS Server Query manual"};
+                        this.emit("error", err);
+                        this.currentQuery.reject(err);
+                        this.processQueue();
+                        return;
+                    }
+
                     this.emit("info", `Query #${this.currentQuery.id} sent! ${this.currentQuery.query.replace("\n", "")}`);
                     this.socket.write(this.currentQuery.query);
 
