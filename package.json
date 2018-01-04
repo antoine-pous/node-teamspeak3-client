@@ -4,8 +4,8 @@
     "url": "https://github.com/antoine-pous/node-teamspeak3-client/issues"
   },
   "dependencies": {
-    "@ts3/query-utils": "^2.0.1",
-    "eventemitter2": "^4.1.2",
+    "@ts3/query-utils": "^2.0.2",
+    "eventemitter2": "^5.0.0",
     "lodash": "^4.17.4"
   },
   "description": "TeamSpeak3 ServerQuery Client",
@@ -22,9 +22,9 @@
   },
   "version": "3.0.3",
   "devDependencies": {
-    "@types/lodash": "^4.14.88",
-    "@types/node": "^8.0.58",
-    "ts-node": "^3.3.0",
+    "@types/lodash": "^4.14.91",
+    "@types/node": "^8.5.2",
+    "ts-node": "^4.1.0",
     "typescript": "^2.6.2"
   }
 }
