@@ -2,7 +2,7 @@
 /**
  * ISC License
  *
- * Copyright (c) 2017, Antoine Pous <gecko@dvp.io>
+ * Copyright (c) 2017-2018, Antoine Pous <gecko@dvp.io>
  *
  * Permission to use, copy, modify, and/or distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -67,6 +67,11 @@ class TS3QueryClient extends eventemitter2_1.EventEmitter2 {
          * @type {iQuery|null}
          */
         this.currentQuery = undefined;
+        /**
+         * Set the current reading status to skip the welcome message
+         * @type {number}
+         */
+        this.status = 0;
         /**
          * Antiflood configuration
          * @type {{config: {commands: number; time: number}; last: {query: number; time: number}; enabled: boolean}}
@@ -231,20 +236,26 @@ class TS3QueryClient extends eventemitter2_1.EventEmitter2 {
         }
     }
     /**
-     *
-     * @param data {string} Data to parse
+     * Read each line from the socket
+     * @param data
      */
     readData(data) {
+        // Skip the welcome message
+        if (this.status < 2) {
+            this.status += 1;
+            return;
+        }
         if (this.currentQuery && data.startsWith("error")) {
             let res = query_utils_1.parseResponse(data.substr("error".length));
             res[0].query = this.currentQuery.query;
-            if (res[0].id > 0)
+            if (res[0].id > 0) {
                 this.currentQuery.reject(res[0]);
+            }
             if (res[0].id === 0 && this.currentQuery.isResolved === false) {
                 this.currentQuery.resolve(true);
             }
             this.emit("error", res[0]);
-            delete this.currentQuery;
+            this.currentQuery = undefined;
         }
         else if (data.indexOf("notify") === 0) {
             let evt = data.substr("notify".length);
@@ -453,14 +464,17 @@ class TS3QueryClient extends eventemitter2_1.EventEmitter2 {
             this.socket = net.connect(port, host);
             this.socket.on('error', (error) => {
                 this.emit('error', { id: 9000, msg: error.message });
+                this.status = 0;
                 reject({ id: 9000, msg: error.message });
             });
             this.socket.on('end', () => {
-                this.emit('end');
+                this.emit('end', { id: 9000, msg: "END" });
+                this.status = 0;
                 reject({ id: 9000, msg: "END" });
             });
             this.socket.on('close', () => {
-                this.emit('close');
+                this.emit('close', { id: 9000, msg: "CLOSE" });
+                this.status = 0;
                 reject({ id: 9000, msg: "CLOSE" });
             });
             this.socket.on("connect", () => {
